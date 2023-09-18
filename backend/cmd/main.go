@@ -1,6 +1,7 @@
 package main
 
 import (
+	"comments/internal/models"
 	"database/sql"
 	"log"
 
@@ -9,18 +10,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-type Comment struct {
-	ID      int64       `json:"id"`
-	ParentID *int64     `json:"parentID"` // Using a pointer so it can be null
-	Author  string      `json:"author"`
-	Text    string      `json:"text"`
-	Children []Comment  `json:"children"`
-}
-type AddCommentPayload struct {
-	ParentID *int64  `json:"parentID"`  // This can be null for top-level comments
-	Author   string  `json:"author"`
-	Text     string  `json:"text"`
-}
+
 
 var db *sql.DB
 
@@ -66,7 +56,7 @@ func getComments(c *gin.Context) {
 	c.JSON(200, gin.H{"success": true, "data": comments, "message": "Comments fetched successfully."})
 }
 func addComment(c *gin.Context) {
-	var payload AddCommentPayload
+	var payload models.AddCommentPayload
 	if err := c.BindJSON(&payload); err != nil {
 		c.JSON(400, gin.H{"success": false, "message": "Invalid request payload."})
 		return
@@ -80,7 +70,7 @@ func addComment(c *gin.Context) {
 	// Now query the database for the newly added comment
 	row := db.QueryRow("SELECT id, parentID, author, text FROM comments WHERE id=?", lastInsertedId)
 
-	var comment Comment
+	var comment models.Comment
 	if err := row.Scan(&comment.ID, &comment.ParentID, &comment.Author, &comment.Text); err != nil {
 		c.JSON(500, gin.H{"success": false, "message": "Error fetching the newly added comment."})
 		return
@@ -99,7 +89,7 @@ func deleteComment(c *gin.Context) {
 	c.JSON(200, gin.H{"success": true, "message": "Comment deleted successfully."})
 }
 
-func fetchCommentsRecursive(parentID *int64) []Comment {
+func fetchCommentsRecursive(parentID *int64) []models.Comment {
 	var rows *sql.Rows
 	var err error
 	
@@ -114,9 +104,9 @@ func fetchCommentsRecursive(parentID *int64) []Comment {
 	}
 	defer rows.Close()
 
-	var comments []Comment
+	var comments []models.Comment
 	for rows.Next() {
-		var comment Comment
+		var comment models.Comment
 		if err := rows.Scan(&comment.ID, &comment.ParentID, &comment.Author, &comment.Text); err != nil {
 			log.Fatal(err)
 		}
